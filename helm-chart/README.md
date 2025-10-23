@@ -50,7 +50,7 @@ Azure Key Vault Multi-Region Synchronization Helm Chart
 | extraVolumeMounts | list | `[]` |  |
 | extraVolumes | list | `[]` |  |
 | image.pullPolicy | string | `"Always"` |  |
-| image.repository | string | `"midocker.azurecr.io/mi-akv-sync"` |  |
+| image.repository | string | `"youracrrepo.azurecr.io/akv-sync"` |  |
 | image.tag | string | `"latest"` |  |
 | imagePullSecrets | list | `[]` |  |
 | namespaceOverride | string | `""` |  |
@@ -74,8 +74,6 @@ Azure Key Vault Multi-Region Synchronization Helm Chart
 | notifications.slack.enabled | bool | `true` |  |
 | notifications.slack.iconEmoji | string | `":key:"` |  |
 | notifications.slack.username | string | `"AKV Sync Bot"` |  |
-| notifications.slack.webhookSecret.key | string | `"url"` |  |
-| notifications.slack.webhookSecret.name | string | `"slack-webhook"` |  |
 | notifications.slack.webhookUrl | string | `""` |  |
 | notifications.teams.enabled | bool | `false` |  |
 | notifications.teams.webhookSecret.key | string | `"url"` |  |
@@ -105,13 +103,14 @@ Azure Key Vault Multi-Region Synchronization Helm Chart
 | resources.requests.cpu | string | `"100m"` |  |
 | resources.requests.memory | string | `"128Mi"` |  |
 | serviceAccount.annotations | object | `{}` |  |
+| serviceAccount.create | bool | `false` |  |
 | serviceAccount.labels | object | `{}` |  |
 | serviceAccount.name | string | `"akv-sync-sa"` |  |
 | source.excludeKeyvaults | list | `[]` |  |
 | source.keyvaults[0].name | string | `"source-keyvault-westeurope"` |  |
 | source.keyvaults[0].region | string | `"westeurope"` |  |
 | source.resourceGroup | string | `""` |  |
-| source.selectionMode | string | `"all"` |  |
+| source.selectionMode | string | `"specific"` |  |
 | source.tags | object | `{}` |  |
 | sync.dryRun | bool | `false` |  |
 | sync.enableDeletion | bool | `false` |  |

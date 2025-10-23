@@ -2,7 +2,7 @@
 
 # Container image configuration
 image:
-  repository: midocker.azurecr.io/mi-akv-sync
+  repository: youracrrepo.azurecr.io/akv-sync
   pullPolicy: Always
   tag: "latest"
 

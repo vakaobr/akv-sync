@@ -4,5 +4,5 @@ affinity:
 source:
   selectionMode: specific
   keyvaults:
-    - name: mi-testvault1
+    - name: testvault1
       region: westeurope
