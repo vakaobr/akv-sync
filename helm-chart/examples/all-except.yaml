@@ -1,0 +1,84 @@
+# Example: All Vaults with Exclusions
+# Use case: Sync all production vaults except dev/test
+
+image:
+  repository: yourregistry.azurecr.io/akv-sync
+  tag: "latest"
+
+azureIdentity:
+  clientId: "your-managed-identity-client-id"
+  tenantId: "your-tenant-id"
+  enabled: true
+
+# Source: All vaults except excluded ones
+source:
+  selectionMode: "allExcept"
+  excludeKeyvaults:
+    - "dev-keyvault"
+    - "test-keyvault"
+    - "temp-keyvault"
+    - "sandbox-kv"
+  resourceGroup: "production-rg"  # Optional: limit to specific RG
+
+# Destination
+destination:
+  region: "northeurope"
+  namingPattern: "{source_name}-replica"
+  autoCreate: true
+  sku: "standard"
+  resourceGroup: "dr-resources"
+
+# Sync settings
+sync:
+  dryRun: false
+  syncDisabledSecrets: true
+  excludeSecrets:
+    - "local-*"
+    - "dev-*"
+    - "temp-*"
+    - "*-test"
+  enableDeletion: false
+  logLevel: "INFO"
+
+# Schedule: Every 10 minutes
+cronjob:
+  schedule: "*/10 * * * *"
+  suspend: false
+  activeDeadlineSeconds: 900  # 15 minutes for multiple vaults
+
+# Multi-channel notifications
+notifications:
+  enabled: true
+  events:
+    onSuccess: false
+    onFailure: true
+    onWarning: true
+
+  email:
+    enabled: true
+    smtpServer: "smtp.gmail.com"
+    smtpPort: 587
+    smtpUser: "notifications@example.com"
+    smtpPasswordSecret:
+      name: "smtp-credentials"
+      key: "password"
+    from: "akv-sync@example.com"
+    to:
+      - "ops-team@example.com"
+      - "devops-lead@example.com"
+    useTLS: true
+
+  slack:
+    enabled: true
+    webhookSecret:
+      name: "slack-webhook"
+      key: "url"
+    channel: "#infrastructure-alerts"
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 200m
+    memory: 256Mi

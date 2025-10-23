@@ -1,0 +1,76 @@
+# Example: Same Subscription with Workload Identity
+# Use case: Sync within same subscription using Workload Identity (recommended)
+
+# SECURITY NOTE: Create external Secret for Slack webhook
+# kubectl create secret generic slack-webhook \
+#   --from-literal=url=YOUR_WEBHOOK_URL \
+#   -n akv-sync
+
+image:
+  repository: yourregistry.azurecr.io/akv-sync
+  tag: "latest"
+
+# Azure subscriptions (same subscription - destination defaults to source)
+# SECURITY: Provide via --set during deployment
+# Example: --set azure.sourceSubscriptionId=$SOURCE_SUB
+azure:
+  sourceSubscriptionId: ""  # Provide via --set
+  # destinationSubscriptionId not specified - will use source subscription
+
+# Authentication using Workload Identity (recommended)
+authentication:
+  method: "workload-identity"
+
+# Workload Identity configuration
+# NOTE: Client ID and Tenant ID are NOT sensitive (public identifiers)
+azureIdentity:
+  clientId: "your-managed-identity-client-id"
+  tenantId: "your-tenant-id"
+  enabled: true
+
+# Source
+source:
+  selectionMode: "specific"
+  keyvaults:
+    - name: "prod-secrets-westeu"
+      region: "westeurope"
+
+# Destination (same subscription, different region)
+destination:
+  region: "northeurope"
+  namingPattern: "{source_name}-{dest_region}"
+  autoCreate: true
+
+# Sync settings
+sync:
+  dryRun: false
+  syncDisabledSecrets: true
+  excludeSecrets:
+    - "temp-*"
+    - "local-*"
+  logLevel: "INFO"
+
+# Schedule
+cronjob:
+  schedule: "*/5 * * * *"
+
+# Notifications
+# SECURITY: Webhook URL in external Secret
+notifications:
+  enabled: true
+  events:
+    onFailure: true
+    onWarning: true
+  slack:
+    enabled: true
+    webhookSecret:
+      name: "slack-webhook"
+      key: "url"
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi

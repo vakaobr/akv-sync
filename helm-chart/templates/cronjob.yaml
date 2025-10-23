@@ -1,0 +1,170 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "akv-sync.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "akv-sync.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.cronjob.schedule | quote }}
+  concurrencyPolicy: {{ .Values.cronjob.concurrencyPolicy }}
+  successfulJobsHistoryLimit: {{ .Values.cronjob.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.cronjob.failedJobsHistoryLimit }}
+  suspend: {{ .Values.cronjob.suspend }}
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: {{ .Values.cronjob.activeDeadlineSeconds }}
+      backoffLimit: {{ .Values.cronjob.backoffLimit }}
+      template:
+        metadata:
+          labels:
+            {{- include "akv-sync.selectorLabels" . | nindent 12 }}
+            {{- if and (eq .Values.authentication.method "workload-identity") .Values.azureIdentity.enabled }}
+            azure.workload.identity/use: "true"
+            {{- end }}
+            {{- with .Values.pod.labels }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.pod.annotations }}
+          annotations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        spec:
+          {{- if eq .Values.azureIdentity.enabled true }}
+          serviceAccountName: {{ .Values.azureIdentity.clientId }}
+          automountServiceAccountToken: true
+          {{- else if .Values.serviceAccount.create }}
+          serviceAccountName: {{ .Values.serviceAccount.name }}
+          {{- end }}
+          restartPolicy: Never
+          {{- with .Values.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.pod.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.affinity.enabled }}
+          affinity:
+            podAntiAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - topologyKey: kubernetes.io/hostname
+                  labelSelector:
+                    matchExpressions:
+                      - key: app.kubernetes.io/name
+                        operator: In
+                        values:
+                          - {{ include "akv-sync.fullname" . | quote }}
+          {{- end }}
+          {{- with .Values.tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.priorityClassName }}
+          priorityClassName: {{ . }}
+          {{- end }}
+          containers:
+          - name: akv-sync
+            image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+            imagePullPolicy: {{ .Values.image.pullPolicy }}
+            envFrom:
+            # Load non-sensitive configuration from ConfigMap
+            - configMapRef:
+                name: {{ include "akv-sync.fullname" . }}-config
+            # Load sensitive data from Secret
+            {{- if or .Values.azure.sourceSubscriptionId .Values.azure.destinationSubscriptionId (eq .Values.authentication.method "service-principal") .Values.notifications.slack.enabled .Values.notifications.teams.enabled .Values.notifications.telegram.enabled .Values.notifications.email.enabled }}
+            - secretRef:
+                name: {{ include "akv-sync.fullname" . }}-secret
+            {{- end }}
+            env:
+            # Mount azure cache at memory
+            - name: AZURE_CONFIG_DIR
+              value: /tmp/.azure
+            {{- if eq .Values.authentication.method "workload-identity" }}
+            - name: AZURE_TENANT_ID
+              value: {{ .Values.azureIdentity.tenantId | quote }}
+            {{- end }}
+            {{- if eq .Values.authentication.method "service-principal" }}
+            {{- if .Values.authentication.servicePrincipal.secretRef }}
+            # Service Principal secret from external Secret
+            - name: SERVICE_PRINCIPAL_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.authentication.servicePrincipal.secretRef.name }}
+                  key: {{ .Values.authentication.servicePrincipal.secretRef.key }}
+            {{- end }}
+            {{- end }}
+            {{- if .Values.notifications.email.enabled }}
+            {{- if .Values.notifications.email.smtpPasswordSecret }}
+            # Email SMTP password from external Secret
+            - name: SMTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.notifications.email.smtpPasswordSecret.name }}
+                  key: {{ .Values.notifications.email.smtpPasswordSecret.key }}
+            {{- end }}
+            {{- end }}
+            {{- if .Values.notifications.slack.enabled }}
+            {{- if .Values.notifications.slack.webhookSecret }}
+            # Slack webhook from external Secret
+            - name: SLACK_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.notifications.slack.webhookSecret.name }}
+                  key: {{ .Values.notifications.slack.webhookSecret.key }}
+            {{- end }}
+            {{- end }}
+            {{- if .Values.notifications.teams.enabled }}
+            {{- if .Values.notifications.teams.webhookSecret }}
+            # Teams webhook from external Secret
+            - name: TEAMS_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.notifications.teams.webhookSecret.name }}
+                  key: {{ .Values.notifications.teams.webhookSecret.key }}
+            {{- end }}
+            {{- end }}
+            {{- if .Values.notifications.telegram.enabled }}
+            {{- if .Values.notifications.telegram.botTokenSecret }}
+            # Telegram bot token from external Secret
+            - name: TELEGRAM_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.notifications.telegram.botTokenSecret.name }}
+                  key: {{ .Values.notifications.telegram.botTokenSecret.key }}
+            {{- end }}
+            {{- if .Values.notifications.telegram.chatIdSecret }}
+            # Telegram chat ID from external Secret
+            - name: TELEGRAM_CHAT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.notifications.telegram.chatIdSecret.name }}
+                  key: {{ .Values.notifications.telegram.chatIdSecret.key }}
+            {{- end }}
+            {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+            {{- with .Values.pod.containerSecurityContext }}
+            securityContext:
+              {{- toYaml . | nindent 14 }}
+            {{- end }}
+            resources:
+              {{- toYaml .Values.resources | nindent 14 }}
+            volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          volumes:
+          - name: tmp
+            emptyDir: {}
+          {{- with .Values.extraVolumes }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}

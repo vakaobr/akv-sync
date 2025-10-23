@@ -1,0 +1,126 @@
+# Example: Multiple Specific Vaults with Full Notifications
+# Use case: Critical infrastructure vaults with comprehensive alerting
+
+image:
+  repository: yourregistry.azurecr.io/akv-sync
+  tag: "latest"
+
+azureIdentity:
+  clientId: "your-managed-identity-client-id"
+  tenantId: "your-tenant-id"
+  enabled: true
+
+# Source: Multiple specific vaults
+source:
+  selectionMode: "specific"
+  keyvaults:
+    - name: "prod-app-secrets"
+      region: "westeurope"
+    - name: "prod-db-credentials"
+      region: "westeurope"
+    - name: "prod-api-keys"
+      region: "westeurope"
+    - name: "prod-certificates"
+      region: "westeurope"
+
+# Destination
+destination:
+  region: "northeurope"
+  namingPattern: "{source_name}-{dest_region}"
+  autoCreate: true
+  sku: "premium"  # Use premium for HSM-backed keys if needed
+
+# Sync settings
+sync:
+  dryRun: false
+  syncDisabledSecrets: false  # Don't sync disabled secrets
+  excludeSecrets:
+    - "obsolete-*"
+    - "*-deprecated"
+  enableDeletion: false  # Safety: don't auto-delete
+  logLevel: "INFO"
+
+# Schedule: Every 5 minutes for critical vaults
+cronjob:
+  schedule: "*/5 * * * *"
+  suspend: false
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 5
+  failedJobsHistoryLimit: 3
+  activeDeadlineSeconds: 900
+
+# Comprehensive notifications
+notifications:
+  enabled: true
+  events:
+    onSuccess: true  # Notify on success for audit trail
+    onFailure: true
+    onWarning: true
+
+  # Email for formal notifications
+  email:
+    enabled: true
+    smtpServer: "smtp.office365.com"
+    smtpPort: 587
+    smtpUser: "akv-sync@company.com"
+    smtpPasswordSecret:
+      name: "smtp-credentials"
+      key: "password"
+    from: "akv-sync@company.com"
+    to:
+      - "security-team@company.com"
+      - "ops-team@company.com"
+      - "compliance@company.com"
+    useTLS: true
+
+  # Slack for immediate team alerts
+  slack:
+    enabled: true
+    webhookSecret:
+      name: "slack-webhook"
+      key: "url"
+    channel: "#critical-infrastructure"
+    username: "AKV Sync - Critical"
+    iconEmoji: ":rotating_light:"
+
+  # Teams for management visibility
+  teams:
+    enabled: true
+    webhookSecret:
+      name: "teams-webhook"
+      key: "url"
+
+  # Telegram for on-call engineers
+  telegram:
+    enabled: true
+    botTokenSecret:
+      name: "telegram-credentials"
+      key: "token"
+    chatIdSecret:
+      name: "telegram-credentials"
+      key: "chatId"
+
+# Higher resources for multiple vaults
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+# Priority scheduling
+priorityClassName: "high-priority"
+
+# Node affinity for reliable nodes
+nodeSelector:
+  workload: system
+
+# Pod security
+pod:
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault

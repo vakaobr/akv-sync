@@ -1,0 +1,87 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "akv-sync.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "akv-sync.labels" . | nindent 4 }}
+data:
+  # Authentication method (not sensitive)
+  AUTH_METHOD: {{ .Values.authentication.method | quote }}
+
+  # Source configuration (not sensitive)
+  SOURCE_SELECTION_MODE: {{ .Values.source.selectionMode | quote }}
+  {{- if eq .Values.source.selectionMode "specific" }}
+  SOURCE_KEYVAULTS: {{ include "akv-sync.sourceKeyvaults" . | quote }}
+  DESTINATION_KEYVAULTS: {{ include "akv-sync.destinationKeyvaults" . | quote }}
+  {{- end }}
+  {{- if eq .Values.source.selectionMode "allExcept" }}
+  SOURCE_EXCLUDE_KEYVAULTS: {{ include "akv-sync.sourceExcludeKeyvaults" . | quote }}
+  {{- end }}
+  {{- if .Values.source.resourceGroup }}
+  SOURCE_RESOURCE_GROUP: {{ .Values.source.resourceGroup | quote }}
+  {{- end }}
+  {{- if .Values.source.tags }}
+  SOURCE_TAGS: {{ .Values.source.tags | toJson | quote }}
+  {{- end }}
+
+  # Destination configuration
+  DESTINATION_REGION: {{ .Values.destination.region | quote }}
+  DESTINATION_NAMING_PATTERN: {{ .Values.destination.namingPattern | quote }}
+  {{- if .Values.destination.resourceGroup }}
+  DESTINATION_RESOURCE_GROUP: {{ .Values.destination.resourceGroup | quote }}
+  {{- end }}
+  DESTINATION_AUTO_CREATE: {{ .Values.destination.autoCreate | quote }}
+  DESTINATION_SKU: {{ .Values.destination.sku | quote }}
+
+  # Sync configuration
+  DRY_RUN: {{ .Values.sync.dryRun | quote }}
+  SYNC_DISABLED_SECRETS: {{ .Values.sync.syncDisabledSecrets | quote }}
+  {{- if .Values.sync.excludeSecrets }}
+  EXCLUDE_SECRETS: {{ include "akv-sync.excludeSecrets" . | quote }}
+  {{- end }}
+  ENABLE_DELETION: {{ .Values.sync.enableDeletion | quote }}
+  LOG_LEVEL: {{ .Values.sync.logLevel | quote }}
+
+  # Notification configuration
+  NOTIFY_ENABLED: {{ .Values.notifications.enabled | quote }}
+  NOTIFY_ON_SUCCESS: {{ .Values.notifications.events.onSuccess | quote }}
+  NOTIFY_ON_FAILURE: {{ .Values.notifications.events.onFailure | quote }}
+  NOTIFY_ON_WARNING: {{ .Values.notifications.events.onWarning | quote }}
+
+  # Email notification configuration
+  {{- if .Values.notifications.email.enabled }}
+  EMAIL_ENABLED: "true"
+  SMTP_SERVER: {{ .Values.notifications.email.smtpServer | quote }}
+  SMTP_PORT: {{ .Values.notifications.email.smtpPort | quote }}
+  SMTP_USER: {{ .Values.notifications.email.smtpUser | quote }}
+  EMAIL_FROM: {{ .Values.notifications.email.from | quote }}
+  EMAIL_TO: {{ include "akv-sync.emailTo" . | quote }}
+  EMAIL_USE_TLS: {{ .Values.notifications.email.useTLS | quote }}
+  {{- else }}
+  EMAIL_ENABLED: "false"
+  {{- end }}
+
+  # Slack notification configuration
+  {{- if .Values.notifications.slack.enabled }}
+  SLACK_ENABLED: "true"
+  SLACK_CHANNEL: {{ .Values.notifications.slack.channel | quote }}
+  SLACK_USERNAME: {{ .Values.notifications.slack.username | quote }}
+  SLACK_ICON_EMOJI: {{ .Values.notifications.slack.iconEmoji | quote }}
+  {{- else }}
+  SLACK_ENABLED: "false"
+  {{- end }}
+
+  # Teams notification configuration
+  {{- if .Values.notifications.teams.enabled }}
+  TEAMS_ENABLED: "true"
+  {{- else }}
+  TEAMS_ENABLED: "false"
+  {{- end }}
+
+  # Telegram notification configuration
+  {{- if .Values.notifications.telegram.enabled }}
+  TELEGRAM_ENABLED: "true"
+  {{- else }}
+  TELEGRAM_ENABLED: "false"
+  {{- end }}

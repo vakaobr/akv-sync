@@ -1,0 +1,8 @@
+{{- if .Values.createNamespace }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ default .Release.Namespace .Values.namespaceOverride }}
+  labels:
+    {{- include "akv-sync.labels" . | nindent 4 }}
+{{- end }}

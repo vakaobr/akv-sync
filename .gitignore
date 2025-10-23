@@ -1,0 +1,50 @@
+# MacOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Helm
+helm-chart/charts/
+helm-chart/*.tgz
+
+# Temporary files
+*.tmp
+*.log
+*.bak
+*.orig
+
+# But don't ignore our main script
+!akv-sync.sh
+
+# Local testing/configuration files
+my-values.yaml
+*-values.yaml
+!helm-chart/examples/*-values.yaml
+
+# Kubernetes secrets (should never be committed)
+*-secret.yaml
+secrets.yaml
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+
+# Testing
+test-results/
+coverage/
+
+# Local environment files
+.env
+.env.local

@@ -1,0 +1,19 @@
+# Git
+.git
+.gitignore
+.github
+
+# Documentation
+README.md
+docs/
+*.md
+!helm-chart/templates/NOTES.txt
+
+# Development files
+.pre-commit-config.yaml
+.DS_Store
+.vscode
+.idea
+
+# Helm chart files (not needed in container)
+helm-chart/

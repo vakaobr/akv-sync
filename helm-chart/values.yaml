@@ -1,0 +1,347 @@
+# Default values for akv-sync Helm chart
+
+# Container image configuration
+image:
+  repository: midocker.azurecr.io/mi-akv-sync
+  pullPolicy: Always
+  tag: "latest"
+
+imagePullSecrets: []
+# - name: acr-secret
+
+# Namespace configuration
+# Whether the Helm chart should create the target namespace automatically.
+# - When set to false (default), Helm will deploy resources into an existing namespace.
+# - When set to true, Helm will create the namespace defined by .Release.Namespace
+#   or by `namespaceOverride` (if specified).
+# ⚠️ Recommended: keep this false when deploying into shared or pre-existing namespaces.
+createNamespace: false
+
+# Optional override for the namespace name to be created when `createNamespace` is true.
+# - If empty, defaults to .Release.Namespace.
+# - Useful for creating a namespace with a custom name different from the Helm release namespace.
+namespaceOverride: ""
+
+# Azure subscription configuration
+# SECURITY NOTE: Subscription IDs are considered sensitive and stored in Kubernetes Secret
+azure:
+  # Source subscription ID (optional - uses current subscription if not set)
+  # IMPORTANT: Do not commit actual subscription IDs to source control
+  # Use external secret management (e.g., sealed-secrets, external-secrets) or
+  # provide via --set during deployment
+  sourceSubscriptionId: ""
+
+  # Destination subscription ID (optional - defaults to source subscription if not set)
+  destinationSubscriptionId: ""
+
+# Authentication configuration
+authentication:
+  # Authentication method: "workload-identity" or "service-principal"
+  # workload-identity: Uses Azure Workload Identity (recommended, no credentials stored)
+  # service-principal: Uses Service Principal credentials
+  method: "workload-identity"
+
+  # Service Principal configuration (only required if method is "service-principal")
+  servicePrincipal:
+    # SECURITY WARNING: These values are sensitive!
+    # RECOMMENDED APPROACH: Use external Kubernetes Secret (secretRef below)
+    # NOT RECOMMENDED: Providing values directly here (only for testing)
+
+    # Service Principal Application (Client) ID
+    # Stored in Kubernetes Secret for security
+    clientId: ""
+
+    # Service Principal Tenant ID
+    # Stored in Kubernetes Secret for security
+    tenantId: ""
+
+    # OPTION 1 (RECOMMENDED): Reference external Secret for client secret
+    # Create secret first: kubectl create secret generic sp-secret --from-literal=client-secret=VALUE
+    secretRef:
+      name: ""  # e.g., "service-principal-secret"
+      key: ""   # e.g., "client-secret"
+
+    # OPTION 2 (NOT RECOMMENDED): Provide secret directly
+    # WARNING: This stores the secret in Helm values and Kubernetes Secret
+    # Only use for testing/development, never commit to source control
+    clientSecret: ""
+
+# Azure Workload Identity configuration (only used if method is "workload-identity")
+azureIdentity:
+  # Client ID of the User-Assigned Managed Identity
+  # This is NOT sensitive (it's a public identifier)
+  clientId: ""
+
+  # Tenant ID
+  # This is NOT sensitive (it's a public identifier)
+  tenantId: ""
+
+  # Enable Azure Workload Identity
+  enabled: true
+
+# CronJob configuration
+cronjob:
+  # Schedule in cron format (default: every 5 minutes)
+  schedule: "*/5 * * * *"
+
+  # Concurrency policy: Allow, Forbid, or Replace
+  concurrencyPolicy: Forbid
+
+  # Number of successful finished jobs to retain
+  successfulJobsHistoryLimit: 3
+
+  # Number of failed finished jobs to retain
+  failedJobsHistoryLimit: 1
+
+  # Deadline in seconds for job execution
+  activeDeadlineSeconds: 600
+
+  # Number of retries before considering job as failed
+  backoffLimit: 1
+
+  # Suspend the cronjob (useful for maintenance)
+  suspend: false
+
+# Source Key Vault configuration
+source:
+  # Selection mode: "all", "specific", "allExcept"
+  # - "all": Sync from all accessible Key Vaults in the subscription (requires subscription-level permissions)
+  # - "specific": Only sync specified Key Vaults (recommended for Workload Identity)
+  # - "allExcept": Sync all except the excluded ones (requires subscription-level permissions)
+  selectionMode: "specific"
+
+  # List of specific Key Vaults (used when selectionMode is "specific")
+  keyvaults:
+    - name: "source-keyvault-westeurope"
+      region: "westeurope"
+      # Optional: specify explicit destination vault name
+      # If not specified, uses destination.namingPattern
+      # destinationName: "custom-dest-vault-name"
+
+  # Exclusion list (used when selectionMode is "allExcept")
+  excludeKeyvaults: []
+  # - "temp-keyvault"
+  # - "dev-keyvault"
+
+  # Resource Group to scan for Key Vaults (optional, if empty scans all accessible)
+  resourceGroup: ""
+
+  # Tag filters for auto-discovery (optional)
+  # Only Key Vaults with these tags will be considered
+  tags: {}
+  # environment: production
+  # sync: enabled
+
+# Destination region for replication
+destination:
+  # Target region for Key Vault replication
+  region: "northeurope"
+
+  # Naming convention for destination Key Vaults (used when destinationName is not specified per vault)
+  # Available placeholders: {source_name}, {source_region}, {dest_region}
+  # Examples:
+  #   "{source_name}" - Keep same name as source (useful for cross-region in same subscription)
+  #   "{source_name}-replica" - Append "-replica"
+  #   "{source_name}-{dest_region}" - Append destination region
+  namingPattern: "{source_name}-replica"
+
+  # Resource Group for destination Key Vaults (optional)
+  # If empty, uses the same resource group as source
+  resourceGroup: ""
+
+  # Tags to apply to destination Key Vaults (optional)
+  tags: {}
+  # environment: production
+  # sync: replica
+
+  # Create destination Key Vault if it doesn't exist
+  autoCreate: false
+
+  # SKU for auto-created Key Vaults: standard or premium
+  sku: "standard"
+
+# Secret synchronization configuration
+sync:
+  # Enable dry-run mode (no changes will be made)
+  dryRun: false
+
+  # Sync disabled secrets
+  syncDisabledSecrets: true
+
+  # Secret exclusion patterns (applies to all Key Vaults)
+  excludeSecrets: []
+  # - "temp-*"
+  # - "*-local"
+  # - "dev-*"
+
+  # Delete secrets from destination that don't exist in source
+  enableDeletion: false
+
+  # Log level: DEBUG, INFO, WARNING, ERROR
+  logLevel: "INFO"
+
+# Notification configuration
+notifications:
+  # Enable notifications
+  enabled: true
+
+  # Notification events
+  events:
+    onSuccess: true    # Notify on successful sync
+    onFailure: true     # Notify on failed sync
+    onWarning: true     # Notify on warnings (e.g., missing destination vault)
+
+  # Email notifications
+  email:
+    enabled: false
+    # SMTP server configuration
+    smtpServer: "smtp.example.com"
+    smtpPort: 587
+    smtpUser: "notifications@example.com"
+
+    # SECURITY WARNING: SMTP password is sensitive!
+    # OPTION 1 (RECOMMENDED): Store in external Kubernetes Secret
+    # Create: kubectl create secret generic smtp-credentials --from-literal=password=YOUR_PASSWORD -n akv-sync
+    smtpPasswordSecret:
+      name: "smtp-credentials"
+      key: "password"
+
+    # OPTION 2 (NOT RECOMMENDED): Direct password value (only for testing)
+    # WARNING: Never commit passwords to source control!
+    smtpPassword: ""
+
+    # From address
+    from: "akv-sync@example.com"
+    # To addresses
+    to:
+      - "ops-team@example.com"
+      - "devops@example.com"
+    # Use TLS
+    useTLS: true
+
+  # Slack notifications
+  slack:
+    enabled: true
+
+    # WARNING: Webhook URLs contain secrets - never commit to source control!
+    webhookUrl: ""
+
+    # Channel to post to (optional, webhook determines default)
+    channel: "#alerts"
+    # Username for the bot
+    username: "AKV Sync Bot"
+    # Icon emoji
+    iconEmoji: ":key:"
+
+  # Microsoft Teams notifications
+  teams:
+    enabled: false
+
+    # SECURITY WARNING: Webhook URL contains secret token!
+    # OPTION 1 (RECOMMENDED): Store in external Kubernetes Secret
+    # Create: kubectl create secret generic teams-webhook --from-literal=url=YOUR_WEBHOOK_URL -n akv-sync
+    webhookSecret:
+      name: "teams-webhook"
+      key: "url"
+
+    # OPTION 2 (NOT RECOMMENDED): Direct webhook URL (only for testing)
+    # WARNING: Webhook URLs contain secrets - never commit to source control!
+    webhookUrl: ""
+
+  # Telegram notifications
+  telegram:
+    enabled: false
+
+    # SECURITY WARNING: Bot token and chat ID are sensitive!
+    # OPTION 1 (RECOMMENDED): Store in external Kubernetes Secret
+    # Create: kubectl create secret generic telegram-credentials \
+    #   --from-literal=token=YOUR_BOT_TOKEN \
+    #   --from-literal=chatId=YOUR_CHAT_ID -n akv-sync
+    botTokenSecret:
+      name: "telegram-credentials"
+      key: "token"
+    chatIdSecret:
+      name: "telegram-credentials"
+      key: "chatId"
+
+    # OPTION 2 (NOT RECOMMENDED): Direct values (only for testing)
+    # WARNING: Never commit tokens to source control!
+    botToken: ""
+    chatId: ""
+
+# Service Account configuration
+serviceAccount:
+  # Name of the service account
+  name: "akv-sync-sa"
+
+  # Annotations for the service account
+  annotations: {}
+
+  # Labels for the service account
+  labels: {}
+  
+  # Whether to create the service account
+  create: false
+
+# Pod configuration
+pod:
+  # Annotations for pods
+  annotations: {}
+
+  # Labels for pods
+  labels: {}
+
+  # Security context for pods
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+
+  # Container security context
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    runAsUser: 1000
+    capabilities:
+      drop:
+        - ALL
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity rules
+affinity: {}
+
+# Priority class name
+priorityClassName: ""
+
+# Additional environment variables
+extraEnv: []
+# - name: CUSTOM_VAR
+#   value: "custom_value"
+
+# Additional volumes
+extraVolumes: []
+# - name: custom-volume
+#   configMap:
+#     name: custom-config
+
+# Additional volume mounts
+extraVolumeMounts: []
+# - name: custom-volume
+#   mountPath: /mnt/custom

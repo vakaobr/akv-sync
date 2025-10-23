@@ -1,0 +1,142 @@
+Thank you for installing {{ .Chart.Name }}!
+
+Your release is named {{ .Release.Name }}.
+
+========================================
+Configuration Summary
+========================================
+
+Source Selection Mode: {{ .Values.source.selectionMode }}
+{{- if eq .Values.source.selectionMode "specific" }}
+Source Key Vaults: {{ include "akv-sync.sourceKeyvaults" . }}
+{{- else if eq .Values.source.selectionMode "allExcept" }}
+Excluded Key Vaults: {{ include "akv-sync.sourceExcludeKeyvaults" . }}
+{{- end }}
+
+Destination Region: {{ .Values.destination.region }}
+Naming Pattern: {{ .Values.destination.namingPattern }}
+Auto-Create Vaults: {{ .Values.destination.autoCreate }}
+
+Sync Schedule: {{ .Values.cronjob.schedule }}
+Dry Run Mode: {{ .Values.sync.dryRun }}
+{{- if .Values.sync.dryRun }}
+
+⚠️  WARNING: Dry run mode is ENABLED. No actual changes will be made.
+{{- end }}
+
+Notifications Enabled: {{ .Values.notifications.enabled }}
+{{- if .Values.notifications.enabled }}
+  - Email: {{ .Values.notifications.email.enabled }}
+  - Slack: {{ .Values.notifications.slack.enabled }}
+  - Teams: {{ .Values.notifications.teams.enabled }}
+  - Telegram: {{ .Values.notifications.telegram.enabled }}
+{{- end }}
+
+========================================
+Next Steps
+========================================
+
+1. Verify the CronJob was created:
+
+   kubectl get cronjob {{ include "akv-sync.fullname" . }} -n {{ .Release.Namespace }}
+
+2. Check the ServiceAccount configuration:
+
+   kubectl get sa {{ .Values.serviceAccount.name }} -n {{ .Release.Namespace }} -o yaml
+
+3. Trigger a manual sync job for testing:
+
+   kubectl create job --from=cronjob/{{ include "akv-sync.fullname" . }} test-sync-$(date +%s) -n {{ .Release.Namespace }}
+
+4. View the logs:
+
+   kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/name={{ include "akv-sync.name" . }} --tail=100
+
+5. Monitor job execution:
+
+   kubectl get jobs -n {{ .Release.Namespace }} --watch
+
+{{- if .Values.sync.dryRun }}
+
+========================================
+⚠️  IMPORTANT: Disable Dry Run Mode
+========================================
+
+You are currently in DRY RUN mode. To enable actual synchronization:
+
+   helm upgrade {{ .Release.Name }} {{ .Chart.Name }} \
+     --namespace {{ .Release.Namespace }} \
+     --reuse-values \
+     --set sync.dryRun=false
+
+{{- end }}
+
+{{- if not .Values.notifications.enabled }}
+
+========================================
+💡 TIP: Enable Notifications
+========================================
+
+Consider enabling notifications to get alerts on sync failures:
+
+   helm upgrade {{ .Release.Name }} {{ .Chart.Name }} \
+     --namespace {{ .Release.Namespace }} \
+     --reuse-values \
+     --set notifications.enabled=true \
+     --set notifications.slack.enabled=true
+
+See values.yaml for full notification configuration options.
+{{- end }}
+
+{{- if .Values.notifications.enabled }}
+{{- $hasSecrets := false }}
+{{- if and .Values.notifications.email.enabled .Values.notifications.email.smtpPasswordSecret.name }}{{ $hasSecrets = true }}{{- end }}
+{{- if .Values.notifications.slack.webhookSecret }}
+Your Slack webhook secret name is: {{ .Values.notifications.slack.webhookSecret.name }}
+{{- else }}
+Slack webhook is not configured.
+{{- end }}
+{{- if and .Values.notifications.teams.enabled .Values.notifications.teams.webhookSecret.name }}{{ $hasSecrets = true }}{{- end }}
+{{- if and .Values.notifications.telegram.enabled .Values.notifications.telegram.botTokenSecret.name }}{{ $hasSecrets = true }}{{- end }}
+{{- if $hasSecrets }}
+
+========================================
+🔒 Required Notification Secrets
+========================================
+
+Make sure to create the following Kubernetes secrets before deploying:
+
+{{- if and .Values.notifications.email.enabled .Values.notifications.email.smtpPasswordSecret.name }}
+- {{ .Values.notifications.email.smtpPasswordSecret.name }} (for email)
+{{- end }}
+{{- if and .Values.notifications.slack.enabled .Values.notifications.slack.webhookSecret.name }}
+- {{ .Values.notifications.slack.webhookSecret.name }} (for Slack)
+{{- end }}
+{{- if and .Values.notifications.teams.enabled .Values.notifications.teams.webhookSecret.name }}
+- {{ .Values.notifications.teams.webhookSecret.name }} (for Teams)
+{{- end }}
+{{- if and .Values.notifications.telegram.enabled .Values.notifications.telegram.botTokenSecret.name }}
+- {{ .Values.notifications.telegram.botTokenSecret.name }} (for Telegram)
+{{- end }}
+
+{{- end }}
+{{- end }}
+
+========================================
+Documentation
+========================================
+
+- Full documentation: See README.md in the chart
+- Installation guide: See INSTALLATION.md
+- Examples: Check the examples/ directory
+
+========================================
+Support
+========================================
+
+For issues or questions:
+- Check logs: kubectl logs -n {{ .Release.Namespace }} <pod-name>
+- View jobs: kubectl get jobs -n {{ .Release.Namespace }}
+- Describe CronJob: kubectl describe cronjob {{ include "akv-sync.fullname" . }} -n {{ .Release.Namespace }}
+
+Happy syncing! 🔐

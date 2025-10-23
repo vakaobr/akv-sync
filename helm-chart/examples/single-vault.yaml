@@ -1,0 +1,64 @@
+# Example: Single Production Vault Replication
+# Use case: Replicate one critical production vault to DR region
+
+image:
+  repository: yourregistry.azurecr.io/akv-sync
+  tag: "latest"
+
+# Azure Workload Identity
+azureIdentity:
+  clientId: "your-managed-identity-client-id"
+  tenantId: "your-tenant-id"
+  enabled: true
+
+# Source: Single specific vault
+source:
+  selectionMode: "specific"
+  keyvaults:
+    - name: "prod-secrets-westeurope"
+      region: "westeurope"
+
+# Destination: Create replica in North Europe
+destination:
+  region: "northeurope"
+  namingPattern: "{source_name}-dr"
+  autoCreate: true
+  sku: "standard"
+
+# Sync settings
+sync:
+  dryRun: false  # Set to true for testing
+  syncDisabledSecrets: true
+  excludeSecrets: []
+  enableDeletion: false
+  logLevel: "INFO"
+
+# Schedule: Every 5 minutes
+cronjob:
+  schedule: "*/5 * * * *"
+  suspend: false
+
+# Notifications: Alert on failures
+notifications:
+  enabled: true
+  events:
+    onSuccess: false
+    onFailure: true
+    onWarning: true
+
+  slack:
+    enabled: true
+    webhookSecret:
+      name: "slack-webhook"
+      key: "url"
+    channel: "#prod-alerts"
+    username: "AKV Sync - Production"
+    iconEmoji: ":lock:"
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi

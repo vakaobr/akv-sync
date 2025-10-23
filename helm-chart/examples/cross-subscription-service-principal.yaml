@@ -1,0 +1,81 @@
+# Example: Cross-Subscription Sync with Service Principal
+# Use case: Sync from one subscription to another using Service Principal authentication
+
+# SECURITY NOTE: This example uses external Kubernetes Secrets for all sensitive data
+# Create secrets BEFORE deploying:
+#
+# kubectl create secret generic service-principal-secret \
+#   --from-literal=client-secret=YOUR_SP_SECRET \
+#   -n akv-sync
+#
+# kubectl create secret generic slack-webhook \
+#   --from-literal=url=YOUR_WEBHOOK_URL \
+#   -n akv-sync
+
+image:
+  repository: yourregistry.azurecr.io/akv-sync
+  tag: "latest"
+
+# Azure subscriptions (cross-subscription sync)
+# SECURITY: Provide these via --set during deployment, not in committed values.yaml
+# Example: --set azure.sourceSubscriptionId=$SOURCE_SUB
+azure:
+  sourceSubscriptionId: ""  # Provide via --set
+  destinationSubscriptionId: ""  # Provide via --set
+
+# Authentication using Service Principal
+# SECURITY: Client ID and Tenant ID can be in values (not sensitive)
+#           Client Secret MUST be in external Secret
+authentication:
+  method: "service-principal"
+  servicePrincipal:
+    clientId: "your-service-principal-app-id"  # Or provide via --set
+    tenantId: "your-tenant-id"  # Or provide via --set
+    # Secret stored in external Kubernetes Secret (REQUIRED)
+    secretRef:
+      name: "service-principal-secret"
+      key: "client-secret"
+
+# Source
+source:
+  selectionMode: "specific"
+  keyvaults:
+    - name: "prod-secrets-westeu"
+      region: "westeurope"
+
+# Destination
+destination:
+  region: "northeurope"
+  namingPattern: "{source_name}-replica"
+  autoCreate: false
+
+# Sync settings
+sync:
+  dryRun: false
+  logLevel: "INFO"
+
+# Schedule
+cronjob:
+  schedule: "*/5 * * * *"
+
+# Notifications
+# SECURITY: Webhook URL stored in external Secret
+notifications:
+  enabled: true
+  events:
+    onFailure: true
+    onWarning: true
+  slack:
+    enabled: true
+    webhookSecret:
+      name: "slack-webhook"
+      key: "url"
+    channel: "#ops-alerts"
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi

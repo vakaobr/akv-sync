@@ -1,0 +1,19 @@
+apiVersion: v2
+name: akv-sync
+description: Azure Key Vault Multi-Region Synchronization Helm Chart
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - azure
+  - key-vault
+  - sync
+  - disaster-recovery
+  - multi-region
+maintainers:
+  - name: Your Team
+    email: devops@example.com
+home: https://github.com/yourorg/akv-sync
+sources:
+  - https://github.com/yourorg/akv-sync
+icon: https://azure.microsoft.com/svghandler/key-vault/

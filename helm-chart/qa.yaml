@@ -1,0 +1,8 @@
+affinity:
+  enabled: true
+
+source:
+  selectionMode: specific
+  keyvaults:
+    - name: mi-testvault1
+      region: westeurope
