@@ -82,7 +82,6 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-MAGENTA='\033[0;35m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
@@ -545,7 +544,6 @@ get_source_keyvaults() {
         set_subscription_context "source" "$SOURCE_SUBSCRIPTION_ID"
     fi
 
-    local query_filter="[]"
     local keyvaults_json
 
     case "$SOURCE_SELECTION_MODE" in
@@ -810,7 +808,7 @@ is_secret_excluded() {
         pattern=$(echo "$pattern" | xargs)  # Trim whitespace
 
         # Simple wildcard matching
-        if [[ "$secret_name" == $pattern ]]; then
+        if [[ "$secret_name" == "$pattern" ]]; then
             return 0  # Excluded
         fi
     done
@@ -838,8 +836,7 @@ sync_vault_secrets() {
 
     # Get secrets from source vault
     local source_secrets
-    source_secrets=$(az keyvault secret list --vault-name "$source_vault" --query "[].{name:name, enabled:attributes.enabled}" -o json 2>/dev/null)
-    if [[ $? -ne 0 ]]; then
+    if ! source_secrets=$(az keyvault secret list --vault-name "$source_vault" --query "[].{name:name, enabled:attributes.enabled}" -o json 2>/dev/null); then
         log_error "Failed to retrieve secrets from source vault: $source_vault"
         return 1
     fi
@@ -849,8 +846,7 @@ sync_vault_secrets() {
 
     # Get secrets from destination vault
     local dest_secrets
-    dest_secrets=$(az keyvault secret list --vault-name "$dest_vault" --query "[].{name:name, enabled:attributes.enabled}" -o json 2>/dev/null)
-    if [[ $? -ne 0 ]]; then
+    if ! dest_secrets=$(az keyvault secret list --vault-name "$dest_vault" --query "[].{name:name, enabled:attributes.enabled}" -o json 2>/dev/null); then
         log_error "Failed to retrieve secrets from destination vault: $dest_vault"
         return 1
     fi
@@ -883,9 +879,7 @@ sync_vault_secrets() {
 
         # Get source secret details
         local source_secret_details
-        source_secret_details=$(az keyvault secret show --vault-name "$source_vault" --name "$secret_name" -o json 2>/dev/null)
-
-        if [[ $? -ne 0 ]]; then
+        if ! source_secret_details=$(az keyvault secret show --vault-name "$source_vault" --name "$secret_name" -o json 2>/dev/null); then
             log_error "Failed to get details for secret '$secret_name' from $source_vault"
             ((errors++))
             continue
@@ -911,9 +905,7 @@ sync_vault_secrets() {
 
             # Secret exists - check if update is needed
             local dest_secret_details
-            dest_secret_details=$(az keyvault secret show --vault-name "$dest_vault" --name "$secret_name" -o json 2>/dev/null)
-
-            if [[ $? -ne 0 ]]; then
+            if ! dest_secret_details=$(az keyvault secret show --vault-name "$dest_vault" --name "$secret_name" -o json 2>/dev/null); then
                 log_error "Failed to get details for destination secret '$secret_name'"
                 ((errors++))
                 continue

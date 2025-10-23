@@ -279,7 +279,7 @@ serviceAccount:
 
   # Labels for the service account
   labels: {}
-  
+
   # Whether to create the service account
   create: false
 
